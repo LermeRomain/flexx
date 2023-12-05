@@ -1,122 +1,93 @@
 <template>
-  <div id="weekly-schedule">
-    <h2>Planning de la Semaine</h2>
-    <div class="calendar">
-      <div class="day" v-for="day in days" :key="day">
-        <h3>{{ day }}</h3>
-        <ul>
-          <li v-for="course in getCoursesForDay(day)" :key="course.id">
-            {{ course.title }} - {{ course.date }}
-            <button @click="reserveCourse(course.id)">Réserver</button>
-          </li>
-        </ul>
+  <div class="container mt-4">
+    <h2 class="text-center mb-4">Weekly Schedule</h2>
+    <div class="row justify-content-center">
+      <div v-for="day in days" :key="day" class="col-md-4">
+        <div class="card mb-4">
+          <div class="card-header text-center">
+            <h3 class="mb-0">{{ day }}</h3>
+          </div>
+          <ul class="list-group list-group-flush">
+            <li v-for="course in getCoursesForDay(day)" :key="course.id" class="list-group-item course-item">
+              <div class="d-flex justify-content-between align-items-center">
+                <div class="d-inline-block text-center">
+                  <h6 class="mb-0">{{ course.title }}</h6>
+                  <small>{{ formatTime(course.date) }}</small>
+                </div>
+                <button @click="reserve(course.id)" :disabled="course.isReserved" class="btn btn-primary btn-sm mt-2 d-block d-md-inline">Réserver</button>
+              </div>
+            </li>
+          </ul>
+        </div>
       </div>
     </div>
   </div>
 </template>
 
 <script>
-import ReservationService from "@/ReservationService";
+import { format, fr } from 'date-fns';
+import ReservationService from "@/ReservationService.js";
 
 export default {
   data() {
     return {
-      days: [],
       courses: [],
     };
   },
-  mounted() {
+  created() {
     this.loadCourses();
-    this.populateDays();
+  },
+  computed: {
+    days() {
+      const uniqueDays = [...new Set(this.courses.map(course => format(course.date, 'dd/MM/yyyy')))];
+      return uniqueDays;
+    },
   },
   methods: {
     loadCourses() {
-      ReservationService.getCourses()
-          .then((response) => {
-            this.courses = response.data;
-          })
-          .catch((error) => {
-            console.error("Erreur lors du chargement des cours", error);
-          });
-    },
-    populateDays() {
-      const currentDate = new Date();
-      const currentDayIndex = currentDate.getDay();
-      const daysInWeek = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
-      this.days = daysInWeek.slice(currentDayIndex).concat(daysInWeek.slice(0, currentDayIndex));
+      ReservationService.getCourses().then((response) => {
+        const currentDate = new Date();
 
-      console.log('Jours:', this.days);
-      console.log('Cours:', this.courses);
-    },
-
-    getCoursesForDay(day) {
-      return this.courses.filter((course) => {
-        const courseDay = new Date(course.date).toLocaleString('fr-FR', { weekday: 'long' });
-        return courseDay === day;
+        this.courses = response.data
+          .map((course) => ({ ...course, isReserved: false }))
+          .filter((course) => course.date > currentDate);
       });
     },
-    reserveCourse(courseId) {
-      ReservationService.reserveCourse(courseId)
-          .then(() => {
-            alert("Cours réservé avec succès!");
-          })
-          .catch((error) => {
-            console.error("Erreur lors de la réservation du cours", error);
-          });
+    getCoursesForDay(day) {
+      return this.courses.filter(course => format(course.date, 'dd/MM/yyyy') === day);
+    },
+    formatTime(dateTime) {
+      return format(dateTime, 'HH:mm', { locale: fr });
+    },
+    reserve(courseId) {
+      ReservationService.reserveCourse().then(() => {
+        const courseIndex = this.courses.findIndex((course) => course.id === courseId);
+        if (courseIndex !== -1) {
+          this.courses[courseIndex].isReserved = true;
+        }
+      });
     },
   },
 };
 </script>
 
-<style>
-#weekly-schedule {
-  max-width: 800px;
-  margin: 0 auto;
-}
 
-.calendar {
-  display: flex;
-  justify-content: space-between;
-}
 
-.day {
-  flex: 1;
-  padding: 10px;
-  background-color: #f8f8f8;
-  border-radius: 8px;
-  margin: 10px;
-}
-
-h3 {
-  color: #333;
-}
-
-ul {
-  list-style-type: none;
-  padding: 0;
-}
-
-li {
+<style scoped>
+.course-item {
+  background-color: #f0f0f0;
   border: 1px solid #ddd;
-  border-radius: 4px;
+  border-radius: 5px;
   margin-bottom: 10px;
-  padding: 10px;
-  background-color: #fff;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-button {
   padding: 8px;
-  background-color: #3498db;
-  color: #fff;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
 }
 
-button:hover {
-  background-color: #2980b9;
+.course-item button {
+  padding: 5px 10px;
+}
+
+.course-item button:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
 }
 </style>
